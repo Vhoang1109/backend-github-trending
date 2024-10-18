@@ -21,7 +21,7 @@ type UserHandler struct {
 func (u *UserHandler) HandleSignUp(c echo.Context) error {
 	req := req.ReqSignUp{}
 	if err := c.Bind(&req); err != nil {
-		log.Error(err.Error()) // Changed to log.Println
+		log.Error(err.Error())
 		return c.JSON(http.StatusBadRequest, model.Response{
 			StatusCode: http.StatusBadRequest,
 			Message:    err.Error(),
@@ -31,7 +31,7 @@ func (u *UserHandler) HandleSignUp(c echo.Context) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
-		log.Error(err.Error()) // Changed to log.Println
+		log.Error(err.Error())
 		return c.JSON(http.StatusBadRequest, model.Response{
 			StatusCode: http.StatusBadRequest,
 			Message:    err.Error(),
@@ -44,7 +44,7 @@ func (u *UserHandler) HandleSignUp(c echo.Context) error {
 
 	userId, err := uuid.NewUUID()
 	if err != nil {
-		log.Error(err.Error()) // Changed to log.Println
+		log.Error(err.Error())
 		return c.JSON(http.StatusForbidden, model.Response{
 			StatusCode: http.StatusForbidden,
 			Message:    err.Error(),
@@ -63,7 +63,7 @@ func (u *UserHandler) HandleSignUp(c echo.Context) error {
 
 	user, err = u.UserRepo.SaveUser(c.Request().Context(), user)
 	if err != nil {
-		log.Error(err.Error()) // Changed to log.Println
+		log.Error(err.Error())
 		return c.JSON(http.StatusConflict, model.Response{
 			StatusCode: http.StatusConflict,
 			Message:    err.Error(),
@@ -71,7 +71,18 @@ func (u *UserHandler) HandleSignUp(c echo.Context) error {
 		})
 	}
 
-	user.Password = ""
+	// Generate token
+	token, err := security.Gentoken(user)
+	if err != nil {
+		log.Error(err)
+		return c.JSON(http.StatusInternalServerError, model.Response{
+			StatusCode: http.StatusInternalServerError,
+			Message:    err.Error(),
+			Data:       nil,
+		})
+	}
+	user.Token = token
+
 	return c.JSON(http.StatusOK, model.Response{
 		StatusCode: http.StatusOK,
 		Message:    "Processed successfully",
@@ -82,7 +93,7 @@ func (u *UserHandler) HandleSignUp(c echo.Context) error {
 func (u *UserHandler) HandleSignIn(c echo.Context) error {
 	req := req.ReqSignIn{}
 	if err := c.Bind(&req); err != nil {
-		log.Error(err.Error()) // Changed to log.Println
+		log.Error(err.Error())
 		return c.JSON(http.StatusBadRequest, model.Response{
 			StatusCode: http.StatusBadRequest,
 			Message:    err.Error(),
@@ -92,7 +103,7 @@ func (u *UserHandler) HandleSignIn(c echo.Context) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
-		log.Error(err.Error()) // Changed to log.Println
+		log.Error(err.Error())
 		return c.JSON(http.StatusBadRequest, model.Response{
 			StatusCode: http.StatusBadRequest,
 			Message:    err.Error(),
@@ -108,20 +119,50 @@ func (u *UserHandler) HandleSignIn(c echo.Context) error {
 		})
 	}
 
-	// check pass
+	// Check password
 	isTheSame := security.ComparePasswords(user.Password, []byte(req.Password))
 	if !isTheSame {
 		return c.JSON(http.StatusUnauthorized, model.Response{
 			StatusCode: http.StatusUnauthorized,
-			Message:    "Đăng nhập thất bại",
+			Message:    "Login failed",
 			Data:       nil,
 		})
 	}
 
-	user.Password = ""
+	// Generate token
+	token, err := security.Gentoken(user)
+	if err != nil {
+		log.Error(err)
+		return c.JSON(http.StatusInternalServerError, model.Response{
+			StatusCode: http.StatusInternalServerError,
+			Message:    err.Error(),
+			Data:       nil,
+		})
+	}
+	user.Token = token
+
 	return c.JSON(http.StatusOK, model.Response{
 		StatusCode: http.StatusOK,
-		Message:    "Xử lý Thành Công",
+		Message:    "Success",
+		Data:       user,
+	})
+}
+func (u *UserHandler) Profile(c echo.Context) error {
+	// Retrieve user from the context (assumes JWT middleware adds user info)
+	user := c.Get("user").(*model.User) // Assuming JWT middleware stores user info in context
+
+	if user == nil {
+		return c.JSON(http.StatusUnauthorized, model.Response{
+			StatusCode: http.StatusUnauthorized,
+			Message:    "Unauthorized",
+			Data:       nil,
+		})
+	}
+
+	// Return user profile
+	return c.JSON(http.StatusOK, model.Response{
+		StatusCode: http.StatusOK,
+		Message:    "Profile retrieved successfully",
 		Data:       user,
 	})
 }
