@@ -5,6 +5,7 @@ import (
 	"backend-github-trending/handler"
 	"backend-github-trending/repository/repo_impl"
 	"backend-github-trending/router"
+	helper "backend-github-trending/struct"
 
 	"github.com/labstack/echo"
 )
@@ -22,6 +23,11 @@ func main() {
 	defer sql.Close()
 
 	e := echo.New()
+
+	structValidator := helper.NewStructValidator()
+	structValidator.RegisterValidate()
+
+	e.Validator = structValidator
 
 	userHandler := handler.UserHandler{
 		UserRepo: repo_impl.NewUserRepo(sql),

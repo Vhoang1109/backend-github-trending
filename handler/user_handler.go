@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"backend-github-trending/lemon"
 	"backend-github-trending/model"
 	req "backend-github-trending/model/req"
 	"backend-github-trending/repository"
 	security "backend-github-trending/security"
 	"net/http"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/labstack/gommon/log"
 
 	validator "github.com/go-playground/validator/v10"
@@ -148,21 +150,29 @@ func (u *UserHandler) HandleSignIn(c echo.Context) error {
 	})
 }
 func (u *UserHandler) Profile(c echo.Context) error {
-	// Retrieve user from the context (assumes JWT middleware adds user info)
-	user := c.Get("user").(*model.User) // Assuming JWT middleware stores user info in context
+	tokenData := c.Get("user").(*jwt.Token)
+	claims := tokenData.Claims.(*model.JwtCustomClaims)
 
-	if user == nil {
-		return c.JSON(http.StatusUnauthorized, model.Response{
-			StatusCode: http.StatusUnauthorized,
-			Message:    "Unauthorized",
+	user, err := u.UserRepo.SelectUserById(c.Request().Context(), claims.UserId)
+	if err != nil {
+		if err == lemon.UserNotFound {
+			return c.JSON(http.StatusNotFound, model.Response{
+				StatusCode: http.StatusNotFound,
+				Message:    err.Error(),
+				Data:       nil,
+			})
+		}
+
+		return c.JSON(http.StatusInternalServerError, model.Response{
+			StatusCode: http.StatusInternalServerError,
+			Message:    err.Error(),
 			Data:       nil,
 		})
 	}
 
-	// Return user profile
 	return c.JSON(http.StatusOK, model.Response{
 		StatusCode: http.StatusOK,
-		Message:    "Profile retrieved successfully",
+		Message:    "Xử lý thành công",
 		Data:       user,
 	})
 }
